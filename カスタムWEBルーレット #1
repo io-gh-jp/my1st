@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>SVGルーレット</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f6f6f6;
+      width: 100vw;
+      min-height: 100vh;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+    .main-container {
+      max-width: min(900px, 96vw);
+      margin: 32px auto;
+      padding: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 40px;
+      justify-content: center;
+      transition: filter 0.2s;
+      box-sizing: border-box;
+      width: 100%;
+      background: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .blurred {
+      filter: blur(7px);
+    }
+    .section {
+      flex: 1 1 340px;
+      min-width: 0;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 6px 28px rgba(0,0,0,0.13);
+      padding: 32px 24px 32px 24px;
+      margin: 18px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .roulette-area {
+      position: relative;
+      width: min(320px, 90vw);
+      height: min(320px, 90vw);
+      margin: 0 auto 12px;
+      box-sizing: border-box;
+      max-width: 100vw;
+      max-height: 100vw;
+      overflow: visible;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* 円状の影 */
+    .roulette-area-bg {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: #fff;
+      z-index: 0;
+      box-shadow: 0 8px 40px 0 rgba(0,0,0,0.22), 0 2px 8px 0 rgba(0,0,0,0.10);
+      pointer-events: none;
+    }
+    /* SVGルーレットの極細白縁 */
+    .roulette-outline {
+      position: absolute;
+      left: 0; top: 0;
+      width: 320px;
+      height: 320px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .pointer {
+      position: absolute;
+      left: 50%;
+      top: -12px;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 36px;
+      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.18));
+      z-index: 2;
+      pointer-events: none;
+    }
+    .roulette-shadow-svg {
+      display: none;
+    }
+    .spin-btn {
+      padding: 12px 36px;
+      font-size: 1.2em;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: all 0.2s;
+    }
+    .spin-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 4px 12px rgba(0,123,255,0.3);
+    }
+    .result {
+      font-size: 1.4em;
+      font-weight: 700;
+      color: #27ae60;
+      margin: 16px 0 0 0;
+      background: #fff;
+      border-radius: 14px;
+      padding: 16px 32px;
+      min-width: 120px;
+      min-height: 32px;
+      box-shadow: 0 6px 24px 0 rgba(0,0,0,0.18), 0 2px 8px 0 rgba(0,0,0,0.08);
+      display: inline-block;
+      text-align: center;
+      letter-spacing: 0.04em;
+      transition: box-shadow 0.2s;
+    }
+    .editor {
+      width: 100%;
+      max-width: 400px;
+    }
+    .item-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      margin: 12px 0;
+      padding: 0;
+      list-style: none;
+      box-sizing: border-box;
+    }
+    .item-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      background: #fff;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      transition: all 0.2s;
+      cursor: grab;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+    }
+    .item-row:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .item-row.dragging {
+      opacity: 0.6;
+      background: #f8f9fa;
+    }
+    .drag-handle {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      user-select: none;
+      font-size: 1.8em;
+      color: #bbb;
+      cursor: grab;
+      transition: color 0.15s;
+      border-radius: 50%;
+      touch-action: none;
+    }
+    .item-row:active .drag-handle,
+    .item-row.dragging .drag-handle {
+      color: #007bff;
+      background: #f0f4ff;
+    }
+    .item-input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 24px;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 1em;
+      transition: border-color 0.2s;
+      background: #fafdff;
+    }
+    .item-input:focus {
+      border-color: #007bff;
+      outline: none;
+    }
+    .remove-btn {
+      width: 32px;
+      height: 32px;
+      background: #ff3b30;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 1.3em;
+      flex-shrink: 0;
+    }
+    .remove-btn:hover {
+      background: #ff2d25;
+      transform: scale(1.1);
+    }
+    .add-item-container {
+      display: flex;
+      gap: 8px;
+      margin-top: 16px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #newItem {
+      flex: 1;
+      padding: 12px 24px;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1em;
+      min-width: 0;
+      background: #fafdff;
+    }
+    .add-btn {
+      width: 48px;
+      height: 48px;
+      background: #007bff;
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 1.5em;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .add-btn:hover {
+      background: #0056b3;
+      transform: rotate(90deg);
+    }
+    .history-btn {
+      margin-top: 10px;
+      padding: 4px 14px;
+      font-size: 0.95em;
+      background: #eee;
+      color: #444;
+      border: 1px solid #bbb;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .history-btn:hover {
+      background: #dbeafe;
+      color: #007bff;
+      border-color: #007bff;
+    }
+    .history-modal-bg {
+      position: fixed;
+      left: 0; top: 0; width: 100vw; height: 100vh;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      background: rgba(0,0,0,0.16);
+      transition: backdrop-filter 0.2s;
+    }
+    .history-modal {
+      background: rgba(255,255,255,0.8);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px #0003;
+      padding: 28px 30px 22px 30px;
+      min-width: 260px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      position: relative;
+    }
+    .history-modal h3 {
+      margin: 0 0 6px 0;
+      font-size: 1.1em;
+      color: #007bff;
+      letter-spacing: 0.05em;
+    }
+    .history-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 4px;
+      align-items: center;
+      justify-content: flex-end;
+      width: 100%;
+    }
+    .history-sort-btn {
+      padding: 3px 14px;
+      font-size: 1em;
+      border-radius: 12px;
+      border: 1px solid #bbb;
+      background: #f3f3f3;
+      color: #444;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+    }
+    .history-sort-btn.active,
+    .history-sort-btn:hover {
+      background: #e0e7ff;
+      color: #007bff;
+      border-color: #007bff;
+    }
+    .history-list {
+      width: 100%;
+      font-size: 1em;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      list-style: decimal inside;
+    }
+    .history-list li {
+      margin-bottom: 10px;
+      padding-left: 2px;
+      position: relative;
+    }
+    .history-result-date {
+      display: block;
+      font-size: 0.9em;
+      color: #888;
+      margin-top: 2px;
+      margin-left: 1.2em;
+      letter-spacing: 0.03em;
+    }
+    .history-close {
+      position: absolute;
+      right: 10px; top: 10px;
+      border: none;
+      background: none;
+      font-size: 1.3em;
+      color: #888;
+      cursor: pointer;
+      transition: color 0.18s;
+    }
+    .history-close:hover {
+      color: #e74c3c;
+    }
+    @media (max-width: 900px) {
+      .main-container {
+        flex-direction: column;
+        align-items: center;
+        gap: 28px;
+        max-width: 100vw;
+        padding: 16px 2vw;
+      }
+      .section {
+        max-width: 98vw;
+        width: 100%;
+        padding: 18px 2vw 18px 2vw;
+        margin: 10px 0;
+      }
+      .roulette-area-bg {
+        width: 98vw;
+        height: 98vw;
+        min-width: 320px;
+        min-height: 320px;
+        max-width: 320px;
+        max-height: 320px;
+      }
+      .roulette-area {
+        width: 98vw;
+        height: 98vw;
+        min-width: 0;
+        min-height: 0;
+        max-width: 320px;
+        max-height: 320px;
+      }
+      .roulette-outline {
+        width: 98vw;
+        height: 98vw;
+        min-width: 320px;
+        min-height: 320px;
+        max-width: 320px;
+        max-height: 320px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container" id="mainContent">
+    <!-- セクション1: ルーレット本体 -->
+    <section class="section" id="roulette-section">
+      <h2 style="margin-bottom:0;">ルーレット</h2>
+      <div class="roulette-area">
+        <div class="roulette-area-bg"></div>
+        <!-- さらに細い白い円縁 -->
+        <svg class="roulette-outline" width="320" height="320" viewBox="0 0 320 320">
+          <circle cx="160" cy="160" r="140" fill="none" stroke="#fff" stroke-width="0.8"/>
+        </svg>
+        <!-- ポインター -->
+        <div class="pointer">
+          <svg width="44" height="36" viewBox="0 0 44 36">
+            <polygon points="0,0 44,0 22,36" fill="#fff"/>
+          </svg>
+        </div>
+        <!-- SVGルーレット本体 -->
+        <svg id="roulette" class="roulette-svg" width="320" height="320" viewBox="0 0 320 320"></svg>
+      </div>
+      <button class="spin-btn" onclick="spinRoulette()">ルーレットを回す</button>
+      <div class="result" id="result"></div>
+      <button class="history-btn" onclick="showHistory()">履歴</button>
+    </section>
+    <!-- セクション2: 項目編集 -->
+    <section class="section" id="edit-section">
+      <h2 style="margin-bottom:0;">項目編集</h2>
+      <div class="editor">
+        <label>項目リスト</label>
+        <ul class="item-list" id="itemList"></ul>
+        <div class="add-item-container">
+          <input type="text" id="newItem" placeholder="新しい項目">
+          <button class="add-btn" onclick="addItem()">+</button>
+        </div>
+      </div>
+    </section>
+  </div>
+  <!-- 履歴モーダル -->
+  <div id="historyModalBg" class="history-modal-bg" style="display:none;">
+    <div class="history-modal">
+      <button class="history-close" onclick="closeHistory()" title="閉じる">&times;</button>
+      <h3>ルーレット履歴</h3>
+      <div class="history-controls">
+        <button id="historyAscBtn" class="history-sort-btn active" onclick="setHistoryOrder(true)">昇順</button>
+        <button id="historyDescBtn" class="history-sort-btn" onclick="setHistoryOrder(false)">降順</button>
+      </div>
+      <ol class="history-list" id="historyList"></ol>
+    </div>
+  </div>
+  <script>
+    // 彩度をやや上げたパステルカラー
+    const SOFT_COLORS = [
+      "#f87b8c", "#ffb366", "#ffe066", "#7ee6c8", "#7ecbff", "#6fa8ff", "#a68cff", "#ffb3c6", "#ffd6a5", "#b7e4c7"
+    ];
+
+    // HSL色空間でランダムな高彩度色（既存色と被らない）を生成
+    function generateRandomColor(existingColors) {
+      for (let attempt = 0; attempt < 24; attempt++) {
+        const h = Math.floor(Math.random() * 360);
+        const s = Math.floor(Math.random() * 18) + 72; // 72-89%
+        const l = Math.floor(Math.random() * 16) + 60; // 60-75%
+        const color = `hsl(${h},${s}%,${l}%)`;
+        // 既存色と近いか判定
+        let similar = existingColors.some(ec => {
+          let d = document.createElement("div");
+          d.style.color = ec;
+          document.body.appendChild(d);
+          let rgb = window.getComputedStyle(d).color.match(/\d+/g).map(Number);
+          document.body.removeChild(d);
+          let [r,g,b] = rgb;
+          r/=255; g/=255; b/=255;
+          let max=Math.max(r,g,b),min=Math.min(r,g,b),h2,s2,l2=(max+min)/2;
+          if(max==min){h2=s2=0;}
+          else{
+            let d=max-min;
+            s2=l2>0.5?d/(2-max-min):d/(max+min);
+            switch(max){
+              case r:h2=(g-b)/d+(g<b?6:0);break;
+              case g:h2=(b-r)/d+2;break;
+              case b:h2=(r-g)/d+4;break;
+            }
+            h2*=60;
+          }
+          return Math.abs(h-h2)<24 && Math.abs(s-s2*100)<18 && Math.abs(l-l2*100)<18;
+        });
+        if(!similar) return color;
+      }
+      return `hsl(${Math.floor(Math.random()*360)},78%,68%)`;
+    }
+
+    let items = [
+      { text: "北海道", color: SOFT_COLORS[0] },
+      { text: "東北", color: SOFT_COLORS[1] },
+      { text: "関東", color: SOFT_COLORS[2] },
+      { text: "中部", color: SOFT_COLORS[3] },
+      { text: "近畿", color: SOFT_COLORS[4] },
+      { text: "中国", color: SOFT_COLORS[5] },
+      { text: "四国", color: SOFT_COLORS[6] },
+      { text: "九州", color: SOFT_COLORS[7] },
+      { text: "沖縄", color: SOFT_COLORS[8] }
+    ];
+    let spinning = false;
+    let currentRotation = 0;
+    let history = [];
+    let historyAsc = true; // 履歴の昇順/降順
+
+    // ドラッグ操作用
+    let dragSrcIdx = null;
+
+    function drawRoulette() {
+      const svg = document.getElementById('roulette');
+      svg.innerHTML = '';
+      const width = 320, height = 320, cx = width/2, cy = height/2, r = 140;
+      const n = items.length;
+      for(let i=0; i<n; i++) {
+        const startAngle = (2*Math.PI*i)/n - Math.PI/2;
+        const endAngle = (2*Math.PI*(i+1))/n - Math.PI/2;
+        const x1 = cx + r * Math.cos(startAngle);
+        const y1 = cy + r * Math.sin(startAngle);
+        const x2 = cx + r * Math.cos(endAngle);
+        const y2 = cy + r * Math.sin(endAngle);
+        const largeArc = ((endAngle - startAngle + 2*Math.PI) % (2*Math.PI)) > Math.PI ? 1 : 0;
+        const pathData = [
+          `M ${cx} ${cy}`,
+          `L ${x1} ${y1}`,
+          `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
+          'Z'
+        ].join(' ');
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', items[i].color || SOFT_COLORS[i % SOFT_COLORS.length]);
+        path.setAttribute('stroke', '#fff');
+        path.setAttribute('stroke-width', 0.8); // 区切り線と同じ極細さ[2][3]
+        svg.appendChild(path);
+
+        // テキスト（白＋ぼかし影）
+        const angle = (startAngle + endAngle)/2;
+        const tx = cx + (r*0.65) * Math.cos(angle);
+        const ty = cy + (r*0.65) * Math.sin(angle);
+
+        // 背景ぼかし影
+        const shadow = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        shadow.setAttribute('x', tx);
+        shadow.setAttribute('y', ty+1);
+        shadow.setAttribute('text-anchor', 'middle');
+        shadow.setAttribute('dominant-baseline', 'middle');
+        shadow.setAttribute('font-size', '16');
+        shadow.setAttribute('fill', '#000');
+        shadow.setAttribute('opacity', '0.32');
+        shadow.setAttribute('pointer-events', 'none');
+        shadow.setAttribute('transform', `rotate(${angle*180/Math.PI},${tx},${ty})`);
+        shadow.setAttribute('style', 'filter: blur(2.5px);');
+        shadow.textContent = items[i].text;
+        svg.appendChild(shadow);
+
+        // 白文字本体
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute('x', tx);
+        text.setAttribute('y', ty);
+        text.setAttribute('text-anchor', 'middle');
+        text.setAttribute('dominant-baseline', 'middle');
+        text.setAttribute('font-size', '16');
+        text.setAttribute('fill', '#fff');
+        text.setAttribute('pointer-events', 'none');
+        text.setAttribute('transform', `rotate(${angle*180/Math.PI},${tx},${ty})`);
+        text.textContent = items[i].text;
+        svg.appendChild(text);
+      }
+      svg.style.transform = `rotate(${currentRotation}deg)`;
+    }
+
+    function updateItemList() {
+      const list = document.getElementById('itemList');
+      list.innerHTML = '';
+      items.forEach((item, idx) => {
+        const li = document.createElement('li');
+        li.className = 'item-row';
+        li.setAttribute('draggable', 'true');
+        li.dataset.idx = idx;
+
+        // ドラッグハンドル（「=」記号）
+        const dragHandle = document.createElement('span');
+        dragHandle.className = 'drag-handle';
+        dragHandle.innerHTML = '<svg width="22" height="22" style="display:block" viewBox="0 0 22 22"><rect x="4" y="7" width="14" height="2.5" rx="1.2" fill="#bbb"/><rect x="4" y="12.5" width="14" height="2.5" rx="1.2" fill="#bbb"/></svg>';
+        dragHandle.title = "ドラッグして順序変更";
+        dragHandle.setAttribute('tabindex', '0');
+        dragHandle.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          li.draggable = true;
+          li.dispatchEvent(new DragEvent('dragstart', {bubbles:true, cancelable:true, dataTransfer: new DataTransfer()}));
+        });
+        dragHandle.addEventListener('touchstart', e => {
+          e.stopPropagation();
+          li.draggable = true;
+          li.dispatchEvent(new DragEvent('dragstart', {bubbles:true, cancelable:true, dataTransfer: new DataTransfer()}));
+        });
+
+        li.appendChild(dragHandle);
+
+        // テキスト編集
+        const textInput = document.createElement('input');
+        textInput.type = 'text';
+        textInput.value = item.text;
+        textInput.className = 'item-input';
+        textInput.placeholder = "項目名";
+        textInput.title = "項目名を編集";
+        textInput.onchange = e => {
+          items[idx].text = e.target.value;
+          drawRoulette();
+        };
+        li.appendChild(textInput);
+
+        // 削除ボタン
+        const delBtn = document.createElement('button');
+        delBtn.className = 'remove-btn';
+        delBtn.textContent = '−';
+        delBtn.title = "削除";
+        delBtn.onclick = () => {
+          items.splice(idx,1);
+          updateItemList();
+          drawRoulette();
+          document.getElementById('result').textContent = '';
+        };
+        li.appendChild(delBtn);
+
+        li.addEventListener('dragstart', e => {
+          dragSrcIdx = idx;
+          li.classList.add('dragging');
+        });
+        li.addEventListener('dragend', e => {
+          dragSrcIdx = null;
+          li.classList.remove('dragging');
+          li.draggable = true;
+        });
+        li.addEventListener('dragover', e => {
+          e.preventDefault();
+        });
+        li.addEventListener('drop', e => {
+          e.preventDefault();
+          const targetIdx = Number(li.dataset.idx);
+          if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+            const moved = items.splice(dragSrcIdx,1)[0];
+            items.splice(targetIdx, 0, moved);
+            updateItemList();
+            drawRoulette();
+          }
+        });
+        list.appendChild(li);
+      });
+    }
+
+    function addItem() {
+      const val = document.getElementById('newItem').value.trim();
+      const existingColors = items.map(item => item.color);
+      const color = generateRandomColor(existingColors);
+      if(val) {
+        items.push({ text: val, color: color });
+        document.getElementById('newItem').value = '';
+        updateItemList();
+        drawRoulette();
+        document.getElementById('result').textContent = '';
+      }
+    }
+
+    function easeOutQuint(t) {
+      return 1 - Math.pow(1 - t, 5);
+    }
+
+    function spinRoulette() {
+      if(spinning || items.length === 0) return;
+      spinning = true;
+      document.getElementById('result').textContent = '';
+      const svg = document.getElementById('roulette');
+      const n = items.length;
+      const degPerItem = 360 / n;
+
+      const fullSpins = Math.floor(Math.random()*2)+6;
+      const randomOffset = Math.random() * 360;
+      const finalDeg = fullSpins * 360 + randomOffset;
+
+      let duration = 4200;
+      let start = null;
+      let initialRotation = currentRotation % 360;
+      let totalChange = finalDeg - initialRotation;
+
+      function animate(ts) {
+        if(!start) start = ts;
+        let elapsed = ts - start;
+        let progress = Math.min(elapsed / duration, 1);
+        let eased = easeOutQuint(progress);
+        let angle = initialRotation + totalChange * eased;
+        currentRotation = angle;
+        svg.style.transform = `rotate(${angle}deg)`;
+        if(progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          spinning = false;
+          currentRotation = (randomOffset)%360;
+          svg.style.transform = `rotate(${currentRotation}deg)`;
+          let pointerDeg = (360 - (currentRotation % 360) + 360) % 360;
+          let sectorIndex = Math.floor(pointerDeg / degPerItem) % n;
+          drawRoulette();
+          document.getElementById('result').textContent = items[sectorIndex].text;
+          addHistory(items[sectorIndex].text, new Date());
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    // 日付フォーマット YYYY/MM/DD HH:mm:ss
+    function formatDate(date) {
+      const pad = n => n < 10 ? '0'+n : n;
+      return `${date.getFullYear()}/${pad(date.getMonth()+1)}/${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function addHistory(item, dateObj) {
+      history.push({text: item, date: dateObj});
+      if(history.length > 50) history.shift();
+    }
+
+    function setHistoryOrder(asc) {
+      historyAsc = asc;
+      document.getElementById('historyAscBtn').classList.toggle('active', asc);
+      document.getElementById('historyDescBtn').classList.toggle('active', !asc);
+      showHistory(true); // 履歴リストのみ再描画
+    }
+
+    function showHistory(onlyListRedraw = false) {
+      const modalBg = document.getElementById('historyModalBg');
+      const list = document.getElementById('historyList');
+      // 履歴の順序
+      let data = historyAsc ? history : history.slice().reverse();
+      list.innerHTML = '';
+      if(history.length === 0) {
+        const li = document.createElement('li');
+        li.textContent = '履歴はありません。';
+        list.appendChild(li);
+      } else {
+        data.forEach((h, idx) => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span>${h.text}</span><span class="history-result-date">${formatDate(h.date)}</span>`;
+          list.appendChild(li);
+        });
+      }
+      if (!onlyListRedraw) {
+        modalBg.style.display = 'flex';
+        document.getElementById('mainContent').classList.add('blurred');
+        // ボタンの状態更新
+        document.getElementById('historyAscBtn').classList.toggle('active', historyAsc);
+        document.getElementById('historyDescBtn').classList.toggle('active', !historyAsc);
+      }
+    }
+
+    function closeHistory() {
+      document.getElementById('historyModalBg').style.display = 'none';
+      document.getElementById('mainContent').classList.remove('blurred');
+    }
+    document.getElementById('historyModalBg').addEventListener('click', function(e){
+      if(e.target === this) closeHistory();
+    });
+    window.addEventListener('keydown', function(e){
+      if(e.key === "Escape") closeHistory();
+    });
+
+    // 初期化
+    updateItemList();
+    drawRoulette();
+    window.addEventListener('resize', ()=>drawRoulette());
+  </script>
+</body>
+</html>
